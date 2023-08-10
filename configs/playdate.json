@@ -1,0 +1,5 @@
+{
+  "alignment": 2,
+  "pspec": "ARMCortex.pspec",
+  "sla": "ARM8_le.sla"
+}

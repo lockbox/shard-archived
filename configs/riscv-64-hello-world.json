@@ -1,0 +1,5 @@
+{
+  "alignment": 2,
+  "pspec": "RV64GC.pspec",
+  "sla": "riscv.lp64d.sla"
+}
