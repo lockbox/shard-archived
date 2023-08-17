@@ -75,7 +75,7 @@ pub fn build(b: *std.Build) !void {
 
     // build docs off of main executable
     const generate_docs = b.addInstallDirectory(.{ .source_dir = exe.getEmittedDocs(), .install_dir = .prefix, .install_subdir = "docs" });
-    const docs_step = b.step("docs", "Build docs to ./docs/");
+    const docs_step = b.step("docs", "Build docs to ./zig-out/docs/");
     docs_step.dependOn(&generate_docs.step);
 }
 
