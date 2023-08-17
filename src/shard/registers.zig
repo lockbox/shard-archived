@@ -82,3 +82,8 @@ pub const RegisterMap = struct {
         }
     }
 };
+
+test "register from sleigh" {}
+test "register to text" {}
+test "new register map" {}
+test "register map lookup" {}

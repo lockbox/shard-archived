@@ -9,11 +9,7 @@ const ShardError = shard.ShardError;
 
 const logger = log.scoped(.shard_var_references);
 
-pub const InnerVarReference = struct {
-    offset: usize,
-    size: usize,
-};
-
+/// Represents a reference to memory at `address` with `size`
 pub const MemoryReference = struct {
     address: u64,
     size: u64,
@@ -23,6 +19,7 @@ pub const MemoryReference = struct {
     }
 };
 
+/// Represents a constant `value` with `size`
 pub const ConstReference = struct {
     value: u64,
     size: u64,
@@ -79,7 +76,7 @@ pub const VarReference = union(enum) {
                 return VarReference{ .unique = UniqueReference{ .inner_addr = vn.offset, .size = vn.size } };
             },
             else => {
-                logger.warn("Got: {}", .{var_space});
+                logger.warn("Got unsupported VarReference Space: {}", .{var_space});
                 unreachable;
             },
         }
@@ -94,3 +91,11 @@ pub const VarReference = union(enum) {
         };
     }
 };
+
+test "code from varnode" {}
+test "data from varnode" {}
+test "stack from varnode" {}
+test "ram from varnode" {}
+test "const from varnode" {}
+test "register from varnode" {}
+test "unique from varnode" {}

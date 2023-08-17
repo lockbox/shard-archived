@@ -362,3 +362,16 @@ pub const ShardInputDesc = struct {
         return ShardInputDesc.new(base, regions);
     }
 };
+
+test "set base address" {}
+test "set sla path" {}
+test "set context pairs" {}
+test "get base address" {}
+test "get size" {}
+test "get sla path" {}
+test "get context pairs" {}
+test "new from regions" {}
+test "get raw regions" {}
+test "get rebased regions" {}
+test "get owning region" {}
+test "next address" {}
