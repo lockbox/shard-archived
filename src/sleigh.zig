@@ -35,7 +35,6 @@
 //!     int foo;
 //! };
 //!
-//!
 //! ArbitraryManager* arbitrary_manager_new(void);
 //! void arbitrary_manager_free(*ArbitraryManager);
 //! void arbitrary_manager_load_region(ArbitraryManager *mgr,
@@ -44,6 +43,7 @@
 //!                        uint8_t *data);
 //! void arbitrary_manager_specfile(ArbitraryManager *mgr, char path[]);
 //! InsnPcode * arbitrary_manager_next_insn(ArbitraryManager *mgr);
+//! ```
 //!
 //! # Limitations
 //!
@@ -55,8 +55,8 @@
 //!         - my guy this is SLEIGH, concurrency isn't a part of the game, we got
 //!           processes for that.
 //!
-//! ```
 const std = @import("std");
+const testing = std.testing;
 const mem = std.mem;
 
 pub const LOG_SCOPE = .sleigh;
@@ -230,7 +230,9 @@ pub const OpCode = enum(c_int) {
     CPUI_MAX = 74,
 };
 
-/// Different `Varnode` spaces used by SLEIGH
+/// Different `Varnode` spaces used by `SLEIGH`
+///
+/// Zig enum of the default spaces in `SLEIGH`
 pub const VarnodeSpace = enum {
     REGISTER,
     CONST,
@@ -255,11 +257,20 @@ pub const VarnodeSpace = enum {
     const FSPEC_CONST = "fspec";
 };
 
+/// Zig representation of C-style Varnode in SLEIGH.
+///
+/// Provides utilities to convert to high level representations
+/// and escape C-style limitations.
 pub const VarnodeDesc = extern struct {
     space: [16]u8,
     offset: u64,
     size: u64,
 
+    const Self = @This();
+
+    /// Translates the current varnode space into a Zig enum
+    ///
+    /// Once it is an enum its a lot easier to work with.
     pub fn space_enum(self: *const VarnodeDesc) SleighError!VarnodeSpace {
         if (mem.startsWith(u8, &self.space, VarnodeSpace.REGISTER_CONST)) {
             return VarnodeSpace.REGISTER;
@@ -286,8 +297,34 @@ pub const VarnodeDesc = extern struct {
             return SleighError.BadVarSpace;
         }
     }
+
+    /// Creates a new `VarnodeDesc` from the necessary components
+    pub fn new(space: []const u8, offset: u64, size: u64) Self {
+        var space_name = [_]u8{0} ** 16;
+        const end_idx = @min(space.len, space_name.len);
+        @memcpy(space_name[0..end_idx], space[0..end_idx]);
+
+        return Self{ .space = space_name, .offset = offset, .size = size };
+    }
 };
 
+test "varnode to enum conversion" {
+    const test_inputs = .{ .{ "register", VarnodeSpace.REGISTER }, .{ "const", VarnodeSpace.CONST }, .{ "unique", VarnodeSpace.UNIQUE }, .{ "stack", VarnodeSpace.STACK }, .{ "ram", VarnodeSpace.RAM }, .{ "data", VarnodeSpace.DATA }, .{ "code", VarnodeSpace.CODE }, .{ "join", VarnodeSpace.JOIN }, .{ "iop", VarnodeSpace.IOP }, .{ "fspec", VarnodeSpace.FSPEC } };
+
+    inline for (test_inputs) |input_tuple| {
+        const space_name = input_tuple[0];
+        const correct_result = input_tuple[1];
+        const v = VarnodeDesc.new(space_name, 0, 0);
+        try testing.expect(try v.space_enum() == correct_result);
+    }
+}
+
+/// Minimal wrapper around C-style struct that represents a P-Code operation.
+///
+/// This struct retains the list of inputs, the optitonal output, and the
+/// opcode representation the semantic action. Note that `CALLOTHER` is an
+/// overload for an arbitrary number of user-defined operations and requires
+/// special handling.
 pub const PcodeOp = extern struct {
     opcode: OpCode,
     output: ?*VarnodeDesc,
@@ -299,6 +336,10 @@ pub const PcodeOp = extern struct {
     }
 };
 
+/// Represents the semantics of a lifted instruction in the target.
+///
+/// Built from an arbitrary number of P-Code operations and an address + size,
+/// this container is the lowest level abstraction over an instruction.
 pub const InsnDesc = extern struct {
     op_count: u64,
     ops: [*]PcodeOp,
@@ -309,10 +350,12 @@ pub const InsnDesc = extern struct {
     body: [*]u8,
     body_len: u64,
 
+    /// Get the slice of P-Code operations making up this instruction
     pub fn pcodes(self: *const InsnDesc) []const PcodeOp {
         return self.ops[0..self.op_count];
     }
 
+    /// Return the ascii text for the assembly instruction
     pub fn to_asm(self: *const InsnDesc, allocator: std.mem.Allocator) ![]const u8 {
         var out: []u8 = try allocator.alloc(u8, 1 + self.body_len + self.insn_len);
 
@@ -324,11 +367,18 @@ pub const InsnDesc = extern struct {
     }
 };
 
+/// Container for Registers.
+///
+/// Made up of name and backing Varnode. Used as a search key for mapping
+/// references to correct registers during analysis
 pub const RegisterDesc = extern struct {
     name: [64]u8,
     varnode: VarnodeDesc,
 };
 
+/// C-Style list of registers.
+///
+/// Made up of a count and the array of registers.
 pub const RegisterList = extern struct {
     register_count: u64,
     registers: [*]RegisterDesc,
@@ -338,6 +388,11 @@ pub const RegisterList = extern struct {
     }
 };
 
+/// List of all user defined operations (`CALLOTHER`).
+///
+/// This is used to turn references to the `CALLOTHER` opcode and
+/// an input `const` value into a numbered user-defined operation with
+/// a name.
 pub const UserOpList = extern struct {
     num: u64,
     name_lens: [*]u64,
@@ -390,6 +445,7 @@ pub const SleighError = error{
 pub const SleighState = struct {
     inner_manager: ?*SleighManager = null,
 
+    /// Constructor
     pub fn init(self: *SleighState) void {
         if (self.inner_manager == null) {
             logger.debug("Initializing SLEIGH", .{});
@@ -399,13 +455,7 @@ pub const SleighState = struct {
         }
     }
 
-    /// Should be defered immediately after `self.init` like:
-    ///
-    /// ```zig
-    /// var s = SleighState{};
-    /// s.init();
-    /// defer s.deinit();
-    /// ```
+    /// Destroys the inner SLEIGH handle, resets the runtime
     pub fn deinit(self: *SleighState) void {
         if (self.inner_manager) |mgr| {
             arbitrary_manager_free(mgr);
@@ -432,15 +482,17 @@ pub const SleighState = struct {
         }
     }
 
-    /// Actually start the sleigh-under-test
+    /// Actually start the SLEIGH instance
+    ///
+    /// This must be called AFTER loading all the proper context, .sla and binary
+    /// but BEFORE attempting to lift any instructions
     pub fn begin(self: *SleighState) void {
         if (self.inner_manager) |mgr| {
-            //logger.debug("Calling sleigh.begin()", .{});
             arbitrary_manager_begin(mgr);
         }
     }
 
-    /// Set a `SLEIGH` instance specific global default context variable
+    /// Set a `SLEIGH` instance global default context variable
     ///
     /// These are different for each architecture and sub-family
     /// TODO: make a getter for all the context variables
@@ -452,17 +504,18 @@ pub const SleighState = struct {
         }
     }
 
+    /// *WARNING*: Deprecated, use `SleighState::lift_insn()` instead
     pub fn next_insn(self: *SleighState) SleighError!*InsnDesc {
         if (self.inner_manager) |mgr| {
-            //logger.debug("Getting next insn", .{});
-
             return arbitrary_manager_next_insn(mgr);
         }
 
         return SleighError.Uninit;
     }
 
-    // todo: handle the `SleighError.UnableToLift` case
+    /// Lift instruction at `address` into an `InsnDesc` to be processed
+    ///
+    /// TODO: handle the `SleighError.UnableToLift` case
     pub fn lift_insn(self: *SleighState, address: u64) SleighError!?*InsnDesc {
         if (self.inner_manager) |mgr| {
             //logger.debug("Getting insn @ 0x{x}", .{address});
@@ -473,6 +526,7 @@ pub const SleighState = struct {
         return SleighError.Uninit;
     }
 
+    /// Get the entire list of registers for the current architecture
     pub fn get_registers(self: *SleighState) SleighError!*RegisterList {
         if (self.inner_manager) |mgr| {
             logger.debug("Getting register list", .{});
@@ -483,6 +537,10 @@ pub const SleighState = struct {
         return SleighError.Uninit;
     }
 
+    /// Get entire list of user-defined operations aka `CALLOTHER` ops
+    ///
+    /// This is used to help navigate the architecture specific semantics
+    /// of various architectures and one-off instructions.
     pub fn get_user_ops(self: *SleighState) SleighError!*UserOpList {
         if (self.inner_manager) |mgr| {
             logger.debug("Getting user op list", .{});

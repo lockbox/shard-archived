@@ -73,10 +73,10 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    // DOCS ISSUE HERE
-    //const generate_docs = b.addInstallDirectory(.{ .source_dir = exe.getEmittedDocs(), .install_dir = .prefix, .install_subdir = "docs" });
-    //const docs_step = b.step("docs", "Build docs to ./docs/");
-    //docs_step.dependOn(&generate_docs.step);
+    // build docs off of main executable
+    const generate_docs = b.addInstallDirectory(.{ .source_dir = exe.getEmittedDocs(), .install_dir = .prefix, .install_subdir = "docs" });
+    const docs_step = b.step("docs", "Build docs to ./docs/");
+    docs_step.dependOn(&generate_docs.step);
 }
 
 /// Add all the dependencies the the compile step

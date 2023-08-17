@@ -1,5 +1,5 @@
-//! Shard Library, made up of a thin IL over SLEIGH, and utilities
-//! loading binary blobs or ghidra dumps.
+//! Shard Library, made up of a thin IL over SLEIGH, and utilities for
+//! loading binary blobs or ghidra dumps for analysis.
 const std = @import("std");
 const json = std.json;
 const sleigh = @import("sleigh.zig");
@@ -16,7 +16,6 @@ pub const ShardLoader = loader.ShardLoader;
 pub const ShardInputTarget = targets.ShardInputTarget;
 pub const ShardInputBin = targets.ShardInputBin; // TODO: refactor so we don't need this here
 pub const ShardInputDesc = targets.ShardInputDesc; // TODO: refactor so we don't need this here
-pub const ShardEmptyTarget = targets.ShardEmptyTarget; // TODO: refactor so this doesn't exist
 pub const ShardOperation = opcodes.ShardOperation;
 pub const ShardMemoryRegion = memory.ShardMemoryRegion;
 pub const VarReference = var_references.VarReference;
@@ -112,6 +111,8 @@ pub const ShardRuntime = struct {
         }
     }
 
+    /// Internal method used to pass an individual memory region to
+    /// SLEIGH.
     fn load_region_to_sleigh(self: *Self, region: ShardMemoryRegion) void {
         self.sleigh_handle.load_data(region.base_address, region.data);
     }
@@ -133,6 +134,7 @@ pub const ShardRuntime = struct {
         self.register_map = register_map;
     }
 
+    /// Performs initial translation of the entire input space
     pub fn perform_lift(self: *Self) !std.ArrayList(ShardInsn) {
         var target = self.target orelse {
             logger.err("No target, cannot lift anything", .{});
@@ -225,7 +227,8 @@ pub const SemanticSummary = struct {
 
     const Self = @This();
 
-    fn empty() Self {
+    /// Construct new `SemanticSummary` with no flags set to `true`
+    pub fn empty() Self {
         return Self{};
     }
 
@@ -269,7 +272,7 @@ pub const SemanticSummary = struct {
 /// A container that wraps underlying `ShardOperation`'s and holds
 /// a semantic summary over the contained members
 ///
-/// TODO: rename to `ShardBlock`
+/// TODO: rename to `ShardBlock` or something
 pub const ShardInsn = struct {
     summary: SemanticSummary,
     size: u64,
@@ -292,7 +295,9 @@ pub const ShardInsn = struct {
 
         // summarize the operations inside this block
         var summary = SemanticSummary.summarize(operations);
-
+        //if (summary.modify_sp) {
+        //    logger.debug("INSN: {s} @ 0x{x}, modifies SP", .{ text, base_address });
+        //}
         return Self{ .summary = summary, .size = size, .base_address = base_address, .operations = operations, .text = text };
     }
 };
