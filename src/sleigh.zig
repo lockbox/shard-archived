@@ -426,60 +426,108 @@ extern fn arbitrary_manager_context_var_set_default(mgr: *SleighManager, context
 extern fn arbitrary_manager_get_all_registers(mgr: *SleighManager) callconv(.C) *RegisterList;
 extern fn arbitrary_manager_get_user_ops(mgr: *SleighManager) callconv(.C) *UserOpList;
 
-test "can load sleigh" {
-    var sleigh_mgr = arbitrary_manager_new();
-    defer arbitrary_manager_free(sleigh_mgr);
-}
-
-/// TODO: expand
+/// Zig error type for errors encountered in SLEIGH
 pub const SleighError = error{
     Uninit,
     BadVarSpace,
     BadOperation,
+    Fail,
     UnableToLift,
-    InvalidSlaSpec,
+    InvalidSlaspec,
+    InvalidPspec,
+    InsnDecodeError,
+    BadContextVariable,
 };
+
+/// Represents the C error enum from SLEIGH
+pub const LibSlaError = enum(c_int) {
+    Ok = 1,
+    Uninit,
+    BadVarSpace,
+    BadOperation,
+    Fail,
+    UnableToLift,
+    InvalidSlaspec,
+    InvalidPspec,
+    InsnDecodeError,
+    BadContextVariable,
+
+    const Self = @This();
+
+    /// Helper to detect if the current enum is an error
+    /// value or not
+    pub fn isError(self: *Self) bool {
+        return switch (self.*) {
+            .Ok => false,
+            inline else => true,
+        };
+    }
+
+    /// Convert's from the C enum SLEIGH error into a zig error type.
+    ///
+    /// This panic's if `self` is `Ok`.
+    pub fn asSleighError(self: *const Self) SleighError {
+        return switch (self.*) {
+            Self.Ok => @panic("Cannot convert from Ok into error!"),
+            Self.Uninit => SleighError.Uninit,
+            Self.BadVarSpace => SleighError.BadVarSpace,
+            Self.BadOperation => SleighError.BadOperation,
+            Self.Fail => SleighError.Fail,
+            Self.UnableToLift => SleighError.UnableToLift,
+            Self.InvalidSlaspec => SleighError.InvalidSlaspec,
+            Self.InvalidPspec => SleighError.InvalidPspec,
+            Self.InsnDecodeError => SleighError.InsnDecodeError,
+            Self.BadContextVariable => SleighError.BadContextVariable,
+        };
+    }
+};
+
+test "libsla error to SleighError" {
+    const result_tuples = .{ .{ LibSlaError.Uninit, SleighError.Uninit }, .{ LibSlaError.BadVarSpace, SleighError.BadVarSpace }, .{ LibSlaError.BadOperation, SleighError.BadOperation }, .{ LibSlaError.Fail, SleighError.Fail }, .{ LibSlaError.UnableToLift, SleighError.UnableToLift }, .{ LibSlaError.InvalidSlaspec, SleighError.InvalidSlaspec }, .{ LibSlaError.InvalidPspec, SleighError.InvalidPspec }, .{ LibSlaError.InsnDecodeError, SleighError.InsnDecodeError }, .{ LibSlaError.BadContextVariable, SleighError.BadContextVariable } };
+
+    inline for (result_tuples) |test_tuple| {
+        const enum_val = test_tuple[0];
+        const result = test_tuple[1];
+
+        try testing.expectEqual(enum_val.asSleighError(), result);
+    }
+}
 
 /// Wrapper over the SLEIGH engine. In general this is the lowest level wrapper
 /// in `Zig` over an added C ffi layer.
 pub const SleighState = struct {
-    inner_manager: ?*SleighManager = null,
+    mgr: *SleighManager,
+
+    const Self = @This();
 
     /// Constructor
-    pub fn init(self: *SleighState) void {
-        if (self.inner_manager == null) {
-            logger.debug("Initializing SLEIGH", .{});
-            self.inner_manager = arbitrary_manager_new();
-        } else {
-            logger.err("Attempted double init of SLEIGH, this is a bug", .{});
-        }
+    pub fn init() Self {
+        logger.debug("Initializing SLEIGH", .{});
+        var inner_manager = arbitrary_manager_new();
+
+        return Self{ .mgr = inner_manager };
     }
 
     /// Destroys the inner SLEIGH handle, resets the runtime
     pub fn deinit(self: *SleighState) void {
-        if (self.inner_manager) |mgr| {
-            arbitrary_manager_free(mgr);
-            self.inner_manager = null;
-            logger.debug("De-init SLEIGH", .{});
-        }
+        arbitrary_manager_free(self.mgr);
+        self.mgr = undefined;
+        logger.debug("De-init SLEIGH", .{});
+        self.* = undefined;
     }
 
     /// Initialize the inner `SLEIGH` instance with the specific architecture flavor
     /// we want to decode and lift from
     pub fn add_specfile(self: *SleighState, path: []const u8) void {
-        if (self.inner_manager) |mgr| {
-            logger.debug("Adding specfile `{s}`", .{path});
+        logger.debug("Adding specfile `{s}`", .{path});
 
-            arbitrary_manager_specfile(mgr, path.ptr);
-        }
+        arbitrary_manager_specfile(self.mgr, path.ptr);
     }
 
     /// Puts array of `u8` into SLEIGH memory
     pub fn load_data(self: *SleighState, address: u64, data: []const u8) void {
-        if (self.inner_manager) |mgr| {
-            //logger.debug("Adding data{{size: 0x{x:0>8}, address: 0x{x:0>8}}}", .{ data.len, address });
-            arbitrary_manager_load_region(mgr, address, data.len, data.ptr);
-        }
+        //logger.debug("Adding data{{size: 0x{x:0>8}, address: 0x{x:0>8}}}", .{ data.len, address });
+        arbitrary_manager_load_region(self.mgr, address, data.len, data.ptr);
     }
 
     /// Actually start the SLEIGH instance
@@ -487,9 +535,7 @@ pub const SleighState = struct {
     /// This must be called AFTER loading all the proper context, .sla and binary
     /// but BEFORE attempting to lift any instructions
     pub fn begin(self: *SleighState) void {
-        if (self.inner_manager) |mgr| {
-            arbitrary_manager_begin(mgr);
-        }
+        arbitrary_manager_begin(self.mgr);
     }
 
     /// Set a `SLEIGH` instance global default context variable
@@ -497,44 +543,30 @@ pub const SleighState = struct {
     /// These are different for each architecture and sub-family
     /// TODO: make a getter for all the context variables
     pub fn context_var_set_default(self: *SleighState, key: []const u8, value: u32) void {
-        if (self.inner_manager) |mgr| {
-            logger.debug("Setting context var `{s}` default to `{}`", .{ key, value });
+        logger.debug("Setting context var `{s}` default to `{}`", .{ key, value });
 
-            arbitrary_manager_context_var_set_default(mgr, key.ptr, value);
-        }
+        arbitrary_manager_context_var_set_default(self.mgr, key.ptr, value);
     }
 
     /// *WARNING*: Deprecated, use `SleighState::lift_insn()` instead
     pub fn next_insn(self: *SleighState) SleighError!*InsnDesc {
-        if (self.inner_manager) |mgr| {
-            return arbitrary_manager_next_insn(mgr);
-        }
-
-        return SleighError.Uninit;
+        return arbitrary_manager_next_insn(self.mgr);
     }
 
     /// Lift instruction at `address` into an `InsnDesc` to be processed
     ///
     /// TODO: handle the `SleighError.UnableToLift` case
     pub fn lift_insn(self: *SleighState, address: u64) SleighError!?*InsnDesc {
-        if (self.inner_manager) |mgr| {
-            //logger.debug("Getting insn @ 0x{x}", .{address});
+        //logger.debug("Getting insn @ 0x{x}", .{address});
 
-            return arbitrary_manager_lift_insn(mgr, address);
-        }
-
-        return SleighError.Uninit;
+        return arbitrary_manager_lift_insn(self.mgr, address);
     }
 
     /// Get the entire list of registers for the current architecture
     pub fn get_registers(self: *SleighState) SleighError!*RegisterList {
-        if (self.inner_manager) |mgr| {
-            logger.debug("Getting register list", .{});
+        //logger.debug("Getting register list", .{});
 
-            return arbitrary_manager_get_all_registers(mgr);
-        }
-
-        return SleighError.Uninit;
+        return arbitrary_manager_get_all_registers(self.mgr);
     }
 
     /// Get entire list of user-defined operations aka `CALLOTHER` ops
@@ -542,12 +574,13 @@ pub const SleighState = struct {
     /// This is used to help navigate the architecture specific semantics
     /// of various architectures and one-off instructions.
     pub fn get_user_ops(self: *SleighState) SleighError!*UserOpList {
-        if (self.inner_manager) |mgr| {
-            logger.debug("Getting user op list", .{});
+        //logger.debug("Getting user op list", .{});
 
-            return arbitrary_manager_get_user_ops(mgr);
-        }
-
-        return SleighError.Uninit;
+        return arbitrary_manager_get_user_ops(self.mgr);
     }
 };
+
+test "can load sleigh" {
+    var sleigh_mgr = arbitrary_manager_new();
+    defer arbitrary_manager_free(sleigh_mgr);
+}

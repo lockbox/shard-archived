@@ -52,8 +52,7 @@ pub const ShardRuntime = struct {
     const Self = @This();
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        var sleigh_rt = SleighState{};
-        sleigh_rt.init();
+        var sleigh_rt = SleighState.init();
 
         const empty_registers = RegisterMap{ .registers = &[_]RegisterImpl{} };
         return Self{ .sleigh_handle = sleigh_rt, .allocator = allocator, .register_map = empty_registers };

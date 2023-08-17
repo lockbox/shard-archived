@@ -62,7 +62,11 @@ struct UserOpNames
 enum LibSlaError
 {
   Ok = 0,
+  Uninit,
+  BadVarSpace,
+  BadOperation,
   Fail,
+  UnableToLift,
   InvalidSlaspec,
   InvalidPspec,
   InsnDecodeError,
