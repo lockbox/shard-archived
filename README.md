@@ -19,7 +19,7 @@ powered by
 - graphs
 
 # Tasks:
-- [ ] tests for registers.zig
+- [x] tests for registers.zig
 - [ ] tests for targets.zig
 - [ ] tests for var_references.zig
 - [ ] needle gets own shard action

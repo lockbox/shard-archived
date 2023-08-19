@@ -5,7 +5,6 @@ zig-out/
 /build/
 /build-*/
 /docgen_tmp/
-docs/
 /references
 /tmp
 **/*.o
