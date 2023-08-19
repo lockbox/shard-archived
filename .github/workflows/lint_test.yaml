@@ -1,3 +1,10 @@
+name: lint and test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
 jobs:
   test:
     strategy:
@@ -13,4 +20,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: goto-bus-stop/setup-zig@v2
-      - run: zig fmt --check src/*.zig
+      - run: zig fmt --check src/*.zig src/*/*.zig
