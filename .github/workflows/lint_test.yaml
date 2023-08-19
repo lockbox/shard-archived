@@ -14,10 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: goto-bus-stop/setup-zig@v2
-      - run:
-          - apt update -qq
-          - apt install binutils-dev -yqq
-          - zig build test
+      - run: |
+          apt update -qq
+          apt install binutils-dev -yqq
+          zig build test
   lint:
     runs-on: ubuntu-latest
     steps:
