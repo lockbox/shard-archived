@@ -1,4 +1,4 @@
-# copied from https://github.com/clickingbuttons/lz4/blob/master/.github/workflows/publish_docs.yml
+# copied and adapted from https://github.com/clickingbuttons/lz4/blob/master/.github/workflows/publish_docs.yml
 name: Docs
 
 on:
@@ -30,11 +30,11 @@ jobs:
       - run: |
           sudo apt update -qq
           sudo apt install -yqq binutils-dev
-          zig build-lib src/lib.zig -femit-docs=docs -fno-emit-bin
+          zig build docs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: 'docs'
+          path: 'zig-out/docs'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
