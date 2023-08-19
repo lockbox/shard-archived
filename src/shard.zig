@@ -79,20 +79,20 @@ pub const ShardRuntime = struct {
 
         self.target = target;
 
-        self.load_target_to_sleigh();
+        try self.load_target_to_sleigh();
         try self.load_registers();
     }
 
-    // TODO: in actuality this has a massive sleigherror situation
-    fn load_target_to_sleigh(self: *Self) void {
+    // TODO: clean this error handling up a bit
+    fn load_target_to_sleigh(self: *Self) !void {
         if (self.target) |target| {
             // load sla contents
-            self.sleigh_handle.add_specfile(target.getSlaPath());
+            try self.sleigh_handle.add_specfile(target.getSlaPath());
             self.begin();
 
             // load pspec context
             for (target.getContextPairs()) |pair| {
-                self.sleigh_handle.context_var_set_default(pair.variable, @truncate(pair.value));
+                try self.sleigh_handle.context_var_set_default(pair.variable, @truncate(pair.value));
             }
 
             // load regions
@@ -100,7 +100,9 @@ pub const ShardRuntime = struct {
                 defer self.allocator.free(regions);
                 for (regions) |region| {
                     //logger.debug("Loading region{{name: {s}, base_address: 0x{x}, len: {}}}", .{ region.name, region.base_address, region.data.len });
-                    self.load_region_to_sleigh(region);
+                    self.load_region_to_sleigh(region) catch |err| {
+                        logger.err("Failed to load Region{{base: 0x{x}, size: 0x{x}}} into SLEIGH: err: {}", .{ region.base_address, region.data.len, err });
+                    };
                 }
             } else |_| {
                 logger.err("Unable to load target into SLEIGH", .{});
@@ -112,8 +114,8 @@ pub const ShardRuntime = struct {
 
     /// Internal method used to pass an individual memory region to
     /// SLEIGH.
-    fn load_region_to_sleigh(self: *Self, region: ShardMemoryRegion) void {
-        self.sleigh_handle.load_data(region.base_address, region.data);
+    fn load_region_to_sleigh(self: *Self, region: ShardMemoryRegion) !void {
+        try self.sleigh_handle.load_data(region.base_address, region.data);
     }
 
     /// Get's all the current registers in use from the `SLEIGH` backend

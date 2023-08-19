@@ -66,6 +66,7 @@ enum LibSlaError
   BadVarSpace,
   BadOperation,
   Fail,
+  CallBeginFirst,
   UnableToLift,
   InvalidSlaspec,
   InvalidPspec,
@@ -533,9 +534,20 @@ extern "C"
    * \brief After loading bytes into the loader, connect the
    * proper specfile at `path` to decode the bytestream.
    */
-  void arbitrary_manager_specfile(ArbitraryManager *mgr, char path[])
+  LibSlaError arbitrary_manager_specfile(ArbitraryManager *mgr, char path[])
   {
-    mgr->load_specfile(path);
+    LibSlaError return_value = LibSlaError::Ok;
+
+    try
+    {
+      mgr->load_specfile(path);
+    }
+    catch (ghidra::DecoderError &err)
+    {
+      return_value = LibSlaError::InvalidSlaspec;
+    }
+
+    return return_value;
   }
 
   /**
@@ -568,18 +580,21 @@ extern "C"
   /**
    * \brief set's the context var global default to `value`
    */
-  void arbitrary_manager_context_var_set_default(ArbitraryManager *mgr,
+  LibSlaError arbitrary_manager_context_var_set_default(ArbitraryManager *mgr,
                                                  char key[], uint32_t value)
   {
+    LibSlaError return_value = LibSlaError::Ok;
+
     try
     {
       mgr->context_var_set_default(key, value);
     }
     catch (ghidra::LowlevelError &err)
     {
-      std::cout << "[libsla ERROR]: " << err.explain << std::endl
-                << std::flush;
+      return_value = LibSlaError::BadContextVariable;
     }
+
+    return return_value;
   }
 
   RegisterList *arbitrary_manager_get_all_registers(ArbitraryManager *mgr)

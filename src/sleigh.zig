@@ -414,15 +414,15 @@ pub const UserOpList = extern struct {
     }
 };
 
-extern fn arbitrary_manager_new() *SleighManager;
+extern fn arbitrary_manager_new() callconv(.C) *SleighManager;
 extern fn arbitrary_manager_free(mgr: *SleighManager) callconv(.C) void;
 extern fn arbitrary_manager_load_region(mgr: *SleighManager, address: u64, size: u64, data: [*]const u8) callconv(.C) void;
 /// `path` MUST be a null terminated string
-extern fn arbitrary_manager_specfile(mgr: *SleighManager, path: [*]const u8) callconv(.C) void;
+extern fn arbitrary_manager_specfile(mgr: *SleighManager, path: [*]const u8) callconv(.C) LibSlaError;
 extern fn arbitrary_manager_begin(mgr: *SleighManager) callconv(.C) void;
 extern fn arbitrary_manager_next_insn(mgr: *SleighManager) callconv(.C) *InsnDesc;
 extern fn arbitrary_manager_lift_insn(mgr: *SleighManager, address: u64) callconv(.C) ?*InsnDesc;
-extern fn arbitrary_manager_context_var_set_default(mgr: *SleighManager, context_key: [*]const u8, value: u32) callconv(.C) void;
+extern fn arbitrary_manager_context_var_set_default(mgr: *SleighManager, context_key: [*]const u8, value: u32) callconv(.C) LibSlaError;
 extern fn arbitrary_manager_get_all_registers(mgr: *SleighManager) callconv(.C) *RegisterList;
 extern fn arbitrary_manager_get_user_ops(mgr: *SleighManager) callconv(.C) *UserOpList;
 
@@ -432,6 +432,7 @@ pub const SleighError = error{
     BadVarSpace,
     BadOperation,
     Fail,
+    CallBeginFirst,
     UnableToLift,
     InvalidSlaspec,
     InvalidPspec,
@@ -441,16 +442,17 @@ pub const SleighError = error{
 
 /// Represents the C error enum from SLEIGH
 pub const LibSlaError = enum(c_int) {
-    Ok = 1,
-    Uninit,
-    BadVarSpace,
-    BadOperation,
-    Fail,
-    UnableToLift,
-    InvalidSlaspec,
-    InvalidPspec,
-    InsnDecodeError,
-    BadContextVariable,
+    Ok = 0,
+    Uninit = 1,
+    BadVarSpace = 2,
+    BadOperation = 3,
+    Fail = 4,
+    CallBeginFirst = 5,
+    UnableToLift = 6,
+    InvalidSlaspec = 7,
+    InvalidPspec = 8,
+    InsnDecodeError = 9,
+    BadContextVariable = 10,
 
     const Self = @This();
 
@@ -473,6 +475,7 @@ pub const LibSlaError = enum(c_int) {
             Self.BadVarSpace => SleighError.BadVarSpace,
             Self.BadOperation => SleighError.BadOperation,
             Self.Fail => SleighError.Fail,
+            Self.CallBeginFirst => SleighError.CallBeginFirst,
             Self.UnableToLift => SleighError.UnableToLift,
             Self.InvalidSlaspec => SleighError.InvalidSlaspec,
             Self.InvalidPspec => SleighError.InvalidPspec,
@@ -483,7 +486,7 @@ pub const LibSlaError = enum(c_int) {
 };
 
 test "libsla error to SleighError" {
-    const result_tuples = .{ .{ LibSlaError.Uninit, SleighError.Uninit }, .{ LibSlaError.BadVarSpace, SleighError.BadVarSpace }, .{ LibSlaError.BadOperation, SleighError.BadOperation }, .{ LibSlaError.Fail, SleighError.Fail }, .{ LibSlaError.UnableToLift, SleighError.UnableToLift }, .{ LibSlaError.InvalidSlaspec, SleighError.InvalidSlaspec }, .{ LibSlaError.InvalidPspec, SleighError.InvalidPspec }, .{ LibSlaError.InsnDecodeError, SleighError.InsnDecodeError }, .{ LibSlaError.BadContextVariable, SleighError.BadContextVariable } };
+    const result_tuples = .{ .{ LibSlaError.Uninit, SleighError.Uninit }, .{ LibSlaError.BadVarSpace, SleighError.BadVarSpace }, .{ LibSlaError.BadOperation, SleighError.BadOperation }, .{ LibSlaError.Fail, SleighError.Fail }, .{ LibSlaError.CallBeginFirst, SleighError.CallBeginFirst }, .{ LibSlaError.UnableToLift, SleighError.UnableToLift }, .{ LibSlaError.InvalidSlaspec, SleighError.InvalidSlaspec }, .{ LibSlaError.InvalidPspec, SleighError.InvalidPspec }, .{ LibSlaError.InsnDecodeError, SleighError.InsnDecodeError }, .{ LibSlaError.BadContextVariable, SleighError.BadContextVariable } };
 
     inline for (result_tuples) |test_tuple| {
         const enum_val = test_tuple[0];
@@ -497,6 +500,7 @@ test "libsla error to SleighError" {
 /// in `Zig` over an added C ffi layer.
 pub const SleighState = struct {
     mgr: *SleighManager,
+    began: bool = false,
 
     const Self = @This();
 
@@ -508,48 +512,68 @@ pub const SleighState = struct {
         return Self{ .mgr = inner_manager };
     }
 
-    /// Destroys the inner SLEIGH handle, resets the runtime
+    /// Destroys the inner SLEIGH handle
+    ///
+    /// TODO: add a reset method
     pub fn deinit(self: *SleighState) void {
         arbitrary_manager_free(self.mgr);
-        self.mgr = undefined;
         logger.debug("De-init SLEIGH", .{});
+        self.mgr = undefined;
         self.* = undefined;
     }
 
     /// Initialize the inner `SLEIGH` instance with the specific architecture flavor
     /// we want to decode and lift from
-    pub fn add_specfile(self: *SleighState, path: []const u8) void {
+    pub fn add_specfile(self: *SleighState, path: []const u8) SleighError!void {
         logger.debug("Adding specfile `{s}`", .{path});
 
-        arbitrary_manager_specfile(self.mgr, path.ptr);
+        var result = arbitrary_manager_specfile(self.mgr, path.ptr);
+        if (result.isError()) {
+            return result.asSleighError();
+        }
     }
 
     /// Puts array of `u8` into SLEIGH memory
-    pub fn load_data(self: *SleighState, address: u64, data: []const u8) void {
+    pub fn load_data(self: *SleighState, address: u64, data: []const u8) SleighError!void {
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
+
         //logger.debug("Adding data{{size: 0x{x:0>8}, address: 0x{x:0>8}}}", .{ data.len, address });
         arbitrary_manager_load_region(self.mgr, address, data.len, data.ptr);
     }
 
     /// Actually start the SLEIGH instance
     ///
-    /// This must be called AFTER loading all the proper context, .sla and binary
-    /// but BEFORE attempting to lift any instructions
+    /// This must be called AFTER loading the sla file but BEFORE loading the
+    /// proper context  variables (.pspec) and binary data or lifting insns
     pub fn begin(self: *SleighState) void {
         arbitrary_manager_begin(self.mgr);
+        self.began = true;
     }
 
     /// Set a `SLEIGH` instance global default context variable
     ///
     /// These are different for each architecture and sub-family
     /// TODO: make a getter for all the context variables
-    pub fn context_var_set_default(self: *SleighState, key: []const u8, value: u32) void {
-        logger.debug("Setting context var `{s}` default to `{}`", .{ key, value });
+    pub fn context_var_set_default(self: *SleighState, key: []const u8, value: u32) SleighError!void {
+        //logger.debug("Setting context var `{s}` default to `{}`", .{ key, value });
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
 
-        arbitrary_manager_context_var_set_default(self.mgr, key.ptr, value);
+        var result = arbitrary_manager_context_var_set_default(self.mgr, key.ptr, value);
+        if (result.isError()) {
+            return result.asSleighError();
+        }
     }
 
     /// *WARNING*: Deprecated, use `SleighState::lift_insn()` instead
     pub fn next_insn(self: *SleighState) SleighError!*InsnDesc {
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
+
         return arbitrary_manager_next_insn(self.mgr);
     }
 
@@ -558,6 +582,9 @@ pub const SleighState = struct {
     /// TODO: handle the `SleighError.UnableToLift` case
     pub fn lift_insn(self: *SleighState, address: u64) SleighError!?*InsnDesc {
         //logger.debug("Getting insn @ 0x{x}", .{address});
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
 
         return arbitrary_manager_lift_insn(self.mgr, address);
     }
@@ -565,6 +592,9 @@ pub const SleighState = struct {
     /// Get the entire list of registers for the current architecture
     pub fn get_registers(self: *SleighState) SleighError!*RegisterList {
         //logger.debug("Getting register list", .{});
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
 
         return arbitrary_manager_get_all_registers(self.mgr);
     }
@@ -575,6 +605,9 @@ pub const SleighState = struct {
     /// of various architectures and one-off instructions.
     pub fn get_user_ops(self: *SleighState) SleighError!*UserOpList {
         //logger.debug("Getting user op list", .{});
+        if (!self.began) {
+            return SleighError.CallBeginFirst;
+        }
 
         return arbitrary_manager_get_user_ops(self.mgr);
     }
@@ -583,4 +616,94 @@ pub const SleighState = struct {
 test "can load sleigh" {
     var sleigh_mgr = arbitrary_manager_new();
     defer arbitrary_manager_free(sleigh_mgr);
+}
+
+test "init" {
+    var sleigh = SleighState.init();
+    defer sleigh.deinit();
+}
+
+test "load slaspec" {
+    {
+        // success
+        var sleigh = SleighState.init();
+        defer sleigh.deinit();
+        try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+    }
+
+    {
+        // make sure we fail correctly
+        var sleigh = SleighState.init();
+        defer sleigh.deinit();
+        try testing.expectError(SleighError.InvalidSlaspec, sleigh.add_specfile("./src/main.zig"));
+    }
+}
+
+test "call begin before certain actions" {
+    var sleigh = SleighState.init();
+    defer sleigh.deinit();
+
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.context_var_set_default("TMode", 1));
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.load_data(0x00, &[_]u8{}));
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.next_insn());
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.get_registers());
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.get_user_ops());
+    try testing.expectError(SleighError.CallBeginFirst, sleigh.lift_insn(0x0));
+
+    // add sla + begin
+    try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+    sleigh.begin();
+
+    // call methods in same order as above, tho it doesnt really matter
+    try sleigh.context_var_set_default("TMode", 1);
+    try sleigh.load_data(0x0, &.{ 0, 0, 0, 0 });
+    _ = try sleigh.next_insn();
+    _ = try sleigh.get_registers();
+    _ = try sleigh.get_user_ops();
+    _ = try sleigh.lift_insn(0x0);
+}
+
+test "load context variable" {
+    {
+        // success
+        var sleigh = SleighState.init();
+        defer sleigh.deinit();
+        try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+        sleigh.begin();
+        try sleigh.context_var_set_default("TMode", 1);
+    }
+    {
+        // fail
+        var sleigh = SleighState.init();
+        defer sleigh.deinit();
+        try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+        sleigh.begin();
+        try testing.expectError(SleighError.BadContextVariable, sleigh.context_var_set_default("DNE", 1));
+    }
+}
+
+test "load binary data" {
+    var sleigh = SleighState.init();
+    defer sleigh.deinit();
+    try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+    sleigh.begin();
+
+    // call methods in same order as above, tho it doesnt really matter
+    try sleigh.context_var_set_default("TMode", 1);
+    try sleigh.load_data(0x0, &.{ 0, 0, 0, 0 });
+}
+
+test "lift binary data" {
+    var sleigh = SleighState.init();
+    defer sleigh.deinit();
+    try sleigh.add_specfile("./specfiles/ARM8_le.sla");
+    sleigh.begin();
+
+    // call methods in same order as above, tho it doesnt really matter
+    try sleigh.context_var_set_default("TMode", 1);
+
+    // this translates to `movs r0, r0; movs r0, r0` in
+    // arm thumb
+    try sleigh.load_data(0x0, &.{ 0, 0, 0, 0 });
+    _ = try sleigh.lift_insn(0x0);
 }
