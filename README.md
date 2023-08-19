@@ -19,28 +19,17 @@ powered by
 - graphs
 
 # Tasks:
-- [x] nextAddress bug in riscv64
-- [x] context var bug in riscv64
-- [x] riscv64 bin into git
-- [ ] riscv32 from quals into git
-- [ ] riscv32 from quals working
-- [ ] sparc from finals into git
-- [ ] sparc from finals working
-- [ ] needle gets own file + action exec from main.zig
-- [ ] make lifting area nicer to poc on
-    - register only
-    - pure function (no dependant state -- just args)
-    - atomic
-    - return
-    - jump
-- [ ] improve needle outputs
-    - resolve all stack manipulation insns
-    - better gadget finding
-
-After:
-- [ ] arbitrary manager make result enum (ie. catch errors)
-- [ ] SHARD wrap new api command and poll all the .bin for all code
-- [ ] formalize shard IL
-    - [ ] make gluon bindings of IL
-- [ ] start working on semantic program translation
-- [ ] query for program semantics
+- [ ] tests for registers.zig
+- [ ] tests for targets.zig
+- [ ] tests for var_references.zig
+- [ ] needle gets own shard action
+- [ ] needle into own file
+- [ ] first draft of full shard ops
+    - [ ] make IL bindings
+        - python
+        - lua
+        - gluon
+        - typescript
+        - other??
+- [ ] able to store semantics
+- [ ] able to query for semantics
