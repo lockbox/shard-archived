@@ -14,8 +14,6 @@ pub const targets = @import("shard/targets.zig");
 
 pub const ShardLoader = loader.ShardLoader;
 pub const ShardInputTarget = targets.ShardInputTarget;
-pub const ShardInputBin = targets.ShardInputBin; // TODO: refactor so we don't need this here
-pub const ShardInputDesc = targets.ShardInputDesc; // TODO: refactor so we don't need this here
 pub const ShardOperation = opcodes.ShardOperation;
 pub const ShardMemoryRegion = memory.ShardMemoryRegion;
 pub const VarReference = var_references.VarReference;

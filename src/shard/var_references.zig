@@ -57,22 +57,18 @@ pub const VarReference = union(enum) {
         // switch on the address space type
         switch (var_space) {
             .CODE, .DATA, .STACK, .RAM => {
-                //out_ref.* = VarReference{ .memory = MemoryReference{ .address = vn.offset, .size = vn.size } };
                 return VarReference{ .memory = MemoryReference{ .address = vn.offset, .size = vn.size } };
             },
             .CONST => {
-                //out_ref.* = VarReference{ .constant = ConstReference{ .value = vn.offset, .size = vn.size } };
                 return VarReference{ .constant = ConstReference{ .value = vn.offset, .size = vn.size } };
             },
             .REGISTER => {
-                //out_ref.* = VarReference{ .register = register_map.lookup(vn.offset, vn.size) orelse unreachable };
                 return VarReference{ .register = register_map.lookup(vn.offset, vn.size) orelse {
                     std.log.err("[REGISTER IMPL] failed to find offset: `{}`, size: `{}`", .{ vn.offset, vn.size });
                     return ShardError.InvalidRegisterLookup;
                 } };
             },
             .UNIQUE => {
-                //out_ref.* = VarReference{ .unique = UniqueReference{ .inner_addr = vn.offset, .size = vn.size } };
                 return VarReference{ .unique = UniqueReference{ .inner_addr = vn.offset, .size = vn.size } };
             },
             else => {

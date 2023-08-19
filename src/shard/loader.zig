@@ -15,7 +15,6 @@ const ShardError = shard.ShardError;
 const StructFooConfig = config.StructFooConfig;
 const SleighContextPair = targets.SleighContextPair;
 const ShardInputTarget = targets.ShardInputTarget;
-const ShardInputDesc = targets.ShardInputDesc;
 const ShardMemoryRegion = memory.ShardMemoryRegion;
 
 const logger = log.scoped(.loader);
@@ -172,7 +171,7 @@ pub const ShardLoader = struct {
         var pairs = loadPspecContext(self.allocator, pspec_path);
 
         // construct target
-        var target = ShardInputDesc.from_regions(regions);
+        var target = ShardInputTarget.from_regions(regions);
 
         // apply base address to target
         target.setBaseAddress(cfg.base_address);
@@ -185,7 +184,7 @@ pub const ShardLoader = struct {
         logger.debug("setting sla path: {s}", .{sla_path});
         target.setSlaPath(sla_path);
 
-        return ShardInputTarget{ .desc = target };
+        return target;
     }
 
     /// For now this just treats `path` as a raw binary file, the plan
