@@ -1,6 +1,9 @@
 //! # `struct.foo`
 //!
 //! A Program Analysis library written in `zig` :zap:
+//!
+//!zig-autodoc-section: Quickstart
+//!zig-autodoc-guide: ../docs/quickstart.md
 const std = @import("std");
 
 pub const sleigh = @import("sleigh.zig");

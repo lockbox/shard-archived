@@ -54,8 +54,7 @@ pub const ShardRuntime = struct {
     pub fn init(allocator: std.mem.Allocator) Self {
         var sleigh_rt = SleighState.init();
 
-        const empty_registers = RegisterMap{ .registers = &[_]RegisterImpl{} };
-        return Self{ .sleigh_handle = sleigh_rt, .allocator = allocator, .register_map = empty_registers };
+        return Self{ .sleigh_handle = sleigh_rt, .allocator = allocator, .register_map = RegisterMap.new(allocator) catch @panic("OOM") };
     }
 
     /// Sets up the initial state to be able to lift the target from SLEIGH
@@ -123,16 +122,13 @@ pub const ShardRuntime = struct {
         var sleigh_registers = try self.sleigh_handle.get_registers();
 
         // get new array of register impls
-        var register_map = try RegisterMap.new(self.allocator, sleigh_registers.register_count);
+        try self.register_map.ensureCapacity(sleigh_registers.register_count);
+
         // convert from SLEIGH to SHARD registers
-        for (sleigh_registers.slice(), 0..) |reg, idx| {
-            RegisterImpl.from_sleigh_in_place(&reg, &register_map.registers[idx]);
+        for (sleigh_registers.slice()) |reg| {
+            try self.register_map.addRegister(RegisterImpl.from_sleigh(&reg));
             //logger.debug("Register: `{s}`, offset: {}, size: {}, space: `{s}`", .{ reg.name, reg.varnode.offset, reg.varnode.size, reg.varnode.space });
         }
-
-        // swap the pointer for the real list
-        // XXX: jank asf
-        self.register_map = register_map;
     }
 
     /// Performs initial translation of the entire input space
@@ -185,7 +181,8 @@ pub const ShardRuntime = struct {
 
     pub fn deinit(self: *Self) void {
         self.sleigh_handle.deinit();
-        logger.debug("De-init SHARD-owned SLEIGH-handle", .{});
+        self.register_map.deinit();
+        self.* = undefined;
     }
 };
 
