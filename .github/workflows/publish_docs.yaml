@@ -3,7 +3,7 @@ name: Docs
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -27,7 +27,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - uses: goto-bus-stop/setup-zig@v2
-      - run: zig build-lib src/lib.zig -femit-docs=docs -fno-emit-bin
+      - run: |
+          sudo apt update -qq
+          sudo apt install -yqq binutils-dev
+          zig build-lib src/lib.zig -femit-docs=docs -fno-emit-bin
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
