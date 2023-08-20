@@ -69,7 +69,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
             self.allocator.free(self.allocatedSlice());
         }
 
-        pub fn init_capacity(allocator: Allocator, num: usize) Allocator.Error!Self {
+        pub fn withCapacity(allocator: Allocator, num: usize) Allocator.Error!Self {
             var self = try Self.init(allocator);
             try self.ensureCapacityPrecise(num);
             return self;
@@ -146,7 +146,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
         }
 
         /// union nodes indecies, bool if success or invalid index
-        pub fn union_indecies(self: *Self, child: usize, parent: usize) bool {
+        pub fn unionIndecies(self: *Self, child: usize, parent: usize) bool {
             if (child >= self.size() or parent >= self.size()) {
                 return false;
             }
@@ -159,16 +159,16 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
         /// unions the nodes containg the data pointers,
         /// returns true if success or bool if pointer is not found
         /// in the table
-        pub fn union_items(self: *Self, child: *T, parent: *T) bool {
-            var child_node = self.get_node(child) orelse return false;
-            var parent_node = self.get_node(parent) orelse return false;
+        pub fn unionItems(self: *Self, child: *T, parent: *T) bool {
+            var child_node = self.getNode(child) orelse return false;
+            var parent_node = self.getNode(parent) orelse return false;
 
             child_node.next = parent_node;
 
             return true;
         }
 
-        /// Get root parent
+        /// Get root parent by child idx
         pub fn find(self: *Self, child: usize) ?*T {
             if (child >= self.size()) return null;
 
@@ -203,7 +203,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
             return self.nodes.len;
         }
 
-        pub fn get_index(self: *Self, ptr: *T) ?usize {
+        pub fn getIndex(self: *Self, ptr: *T) ?usize {
             for (self.nodes, 0..) |node, idx| {
                 if (node.item == ptr) {
                     return idx;
@@ -213,7 +213,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
             return null;
         }
 
-        inline fn get_node(self: *Self, item: *T) ?*UnionFindNode {
+        inline fn getNode(self: *Self, item: *T) ?*UnionFindNode {
             for (0..self.nodes.len) |idx| {
                 var node = &self.nodes[idx];
 
@@ -223,6 +223,36 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
             }
 
             return null;
+        }
+
+        /// Checks if a slice of items are in the same set / have the
+        /// same parent
+        pub inline fn inSameSet(self: *Self, items: []const *T) bool {
+            var parent: ?*T = null;
+
+            for (items) |item| {
+                // if we cant find any item then return false not in set
+                var index = self.getIndex(item) orelse return false;
+
+                // if we found a root
+                if (self.find(index)) |root| {
+                    // is there a parent set yet? if no then do it
+                    if (parent == null) {
+                        parent = root;
+                        // else if the root we just found is not the parent
+                        // we already set
+                    } else if (parent != root) {
+                        return false;
+                        // else the root is the same, so continue to check the
+                        // next item in the list
+                    } else {
+                        continue;
+                    }
+                }
+            }
+
+            // all items have the same parent, return true
+            return true;
         }
     };
 }
@@ -247,7 +277,7 @@ test "union find init capacity" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     try testing.expect(test_uf.capacity == capacity);
@@ -259,7 +289,7 @@ test "union find insert 1" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -276,7 +306,7 @@ test "union find insert 2" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -295,7 +325,7 @@ test "union find node insert self-ref" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -311,7 +341,7 @@ test "union find resize to num" {
     const allocator = testing.allocator;
     const capacity = 1;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     try test_uf.ensureCapacity(10);
@@ -323,7 +353,7 @@ test "union find resize to 2 * capacity" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     try test_uf.ensureCapacity(7);
@@ -335,7 +365,7 @@ test "union find insert resize" {
     const allocator = testing.allocator;
     const capacity = 1;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -356,7 +386,7 @@ test "union find get item" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -377,7 +407,7 @@ test "union find no parent" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -396,7 +426,7 @@ test "union find 1 parent" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -415,7 +445,7 @@ test "union find parent parent" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -440,7 +470,7 @@ test "union find get index" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -452,9 +482,9 @@ test "union find get index" {
     _ = try test_uf.insert(item);
     _ = try test_uf.insert(item2);
 
-    try testing.expect(test_uf.get_index(item) == 0);
-    try testing.expect(test_uf.get_index(item3) == null);
-    try testing.expect(test_uf.get_index(item2) == 1);
+    try testing.expect(test_uf.getIndex(item) == 0);
+    try testing.expect(test_uf.getIndex(item3) == null);
+    try testing.expect(test_uf.getIndex(item2) == 1);
 
     allocator.destroy(item3);
 }
@@ -463,7 +493,7 @@ test "union find union indecies" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -479,19 +509,19 @@ test "union find union indecies" {
     try testing.expect(test_uf.nodes[1].next == &test_uf.nodes[1]);
 
     // now link 0.next to 1
-    try testing.expect(test_uf.union_indecies(0, 1));
+    try testing.expect(test_uf.unionIndecies(0, 1));
     try testing.expect(test_uf.nodes[0].next == &test_uf.nodes[1]);
     try testing.expect(test_uf.nodes[1].next == &test_uf.nodes[1]);
 
     // assert that we cannot link incorrect indicies
-    try testing.expect(!test_uf.union_indecies(0, 5));
+    try testing.expect(!test_uf.unionIndecies(0, 5));
 }
 
 test "union find union items" {
     const allocator = testing.allocator;
     const capacity = 5;
     const uf = UnionFind(usize);
-    var test_uf = try uf.init_capacity(allocator, capacity);
+    var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
     var item = try allocator.create(usize);
@@ -508,12 +538,57 @@ test "union find union items" {
     try testing.expect(test_uf.nodes[1].next == &test_uf.nodes[1]);
 
     // now link 0.next to 1
-    try testing.expect(test_uf.union_items(item, item2));
+    try testing.expect(test_uf.unionItems(item, item2));
     try testing.expect(test_uf.nodes[0].next == &test_uf.nodes[1]);
     try testing.expect(test_uf.nodes[1].next == &test_uf.nodes[1]);
 
     // assert that we cannot link incorrect indicies
-    try testing.expect(!test_uf.union_items(item2, item3));
+    try testing.expect(!test_uf.unionItems(item2, item3));
 
     testing.allocator.destroy(item3);
+}
+
+test "transitive testing" {
+    const allocator = testing.allocator;
+    const capacity = 5;
+    const uf = UnionFind(usize);
+    var test_uf = try uf.withCapacity(allocator, capacity);
+    defer test_uf.deinit();
+
+    var a = try allocator.create(usize);
+    var b = try allocator.create(usize);
+    var c = try allocator.create(usize);
+    var d = try allocator.create(usize);
+
+    a.* = 1;
+    b.* = 2;
+    c.* = 3;
+    d.* = 4;
+
+    // we don't insert item3, to assert that we won't find it
+    // in the union find
+    var a_id = try test_uf.insert(a);
+    _ = a_id;
+    var b_id = try test_uf.insert(b);
+    _ = b_id;
+    var c_id = try test_uf.insert(c);
+    var d_id = try test_uf.insert(d);
+
+    // for this example:
+    // - a == c
+    // - b == d
+    // - d == c
+    try testing.expect(test_uf.unionItems(a, c));
+    try testing.expect(test_uf.unionItems(b, d));
+    try testing.expect(test_uf.unionItems(d, c));
+
+    try testing.expect(test_uf.find(c_id).? == c);
+    try testing.expect(test_uf.find(d_id).? == c);
+    try testing.expectEqual(false, test_uf.find(d_id).? == b);
+    try testing.expect(test_uf.inSameSet(&.{ a, c }));
+    try testing.expect(test_uf.inSameSet(&.{ b, d }));
+    try testing.expect(test_uf.inSameSet(&.{ d, c }));
+
+    // test transitive membership of a and b being in the same set
+    try testing.expect(test_uf.inSameSet(&.{ a, b }));
 }

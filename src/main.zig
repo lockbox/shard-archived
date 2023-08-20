@@ -10,6 +10,7 @@ pub const sleigh = @import("sleigh.zig");
 pub const clap = @import("clap.zig");
 pub const shard = @import("shard.zig");
 pub const config = @import("config.zig");
+pub const union_find = @import("union_find.zig");
 const ShardInsn = shard.ShardInsn;
 const StructFooConfig = config.StructFooConfig;
 
