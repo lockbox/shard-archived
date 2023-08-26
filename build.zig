@@ -90,7 +90,6 @@ fn add_deps(b: *std.Build, build_step: *std.build.CompileStep, target: std.zig.C
     });
 
     try build_sleigh(libsla, b);
-    build_step.addIncludePath(.{ .path = "./deps/sleigh" });
     build_step.linkLibrary(libsla);
 
     // at some point we'll use actual binutils-bfd master
@@ -103,6 +102,10 @@ fn add_deps(b: *std.Build, build_step: *std.build.CompileStep, target: std.zig.C
     //const built_gluon = b.addSystemCommand(&[_][]const u8{ "pushd deps/gluon/", "cargo build -p gluon_c-api --release" });
     //built_gluon.has_side_effects = true;
     //exe.addLibraryPath(.{.path="./deps/gluon/target/release/"});
+
+    // link against z3
+    // little out of my comfort zone atm to replace the z3 build chain with zig
+    //build_step.addObjectFile(.{ .path = "./deps/libz3.so" });
 }
 
 /// Builds the packaged SLEIGH library

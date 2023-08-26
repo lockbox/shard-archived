@@ -50,16 +50,16 @@ pub const ShardOperation = union(ShardOps) {
     store: ShardOpStore,
     /// Load
     load: ShardOpLoad,
-    /// Call
-    call: ShardOpCall,
-    /// Call indirect
-    call_indirect: ShardOpCallIndirect,
     /// Branch
     branch: ShardOpBranch,
     /// Branch conditional
     branch_conditional: ShardOpBranchCond,
     /// Branch indirect
     branch_indirect: ShardOpBranchIndirect,
+    /// Call
+    call: ShardOpCall,
+    /// Call indirect
+    call_indirect: ShardOpCallIndirect,
     /// Return
     ret: ShardOpReturn,
 
