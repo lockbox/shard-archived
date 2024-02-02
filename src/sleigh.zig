@@ -309,7 +309,18 @@ pub const VarnodeDesc = extern struct {
 };
 
 test "varnode to enum conversion" {
-    const test_inputs = .{ .{ "register", VarnodeSpace.REGISTER }, .{ "const", VarnodeSpace.CONST }, .{ "unique", VarnodeSpace.UNIQUE }, .{ "stack", VarnodeSpace.STACK }, .{ "ram", VarnodeSpace.RAM }, .{ "data", VarnodeSpace.DATA }, .{ "code", VarnodeSpace.CODE }, .{ "join", VarnodeSpace.JOIN }, .{ "iop", VarnodeSpace.IOP }, .{ "fspec", VarnodeSpace.FSPEC } };
+    const test_inputs = .{
+        .{ "register", VarnodeSpace.REGISTER },
+        .{ "const", VarnodeSpace.CONST },
+        .{ "unique", VarnodeSpace.UNIQUE },
+        .{ "stack", VarnodeSpace.STACK },
+        .{ "ram", VarnodeSpace.RAM },
+        .{ "data", VarnodeSpace.DATA },
+        .{ "code", VarnodeSpace.CODE },
+        .{ "join", VarnodeSpace.JOIN },
+        .{ "iop", VarnodeSpace.IOP },
+        .{ "fspec", VarnodeSpace.FSPEC },
+    };
 
     inline for (test_inputs) |input_tuple| {
         const space_name = input_tuple[0];
@@ -403,7 +414,7 @@ pub const UserOpList = extern struct {
         // make 1st dimenstion
         var name_list: [][]u8 = try allocator.alloc([]u8, self.num);
         for (self.names[0..self.num], 0..) |n, idx| {
-            var name_length = self.name_lens[idx];
+            const name_length = self.name_lens[idx];
             name_list[idx] = try allocator.alloc(u8, name_length);
 
             @memcpy(name_list[idx], n[0..name_length]);
@@ -507,7 +518,7 @@ pub const SleighState = struct {
     /// Constructor
     pub fn init() Self {
         logger.debug("Initializing SLEIGH", .{});
-        var inner_manager = arbitrary_manager_new();
+        const inner_manager = arbitrary_manager_new();
 
         return Self{ .mgr = inner_manager };
     }
@@ -614,7 +625,7 @@ pub const SleighState = struct {
 };
 
 test "can load sleigh" {
-    var sleigh_mgr = arbitrary_manager_new();
+    const sleigh_mgr = arbitrary_manager_new();
     defer arbitrary_manager_free(sleigh_mgr);
 }
 

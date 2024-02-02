@@ -7,7 +7,7 @@
 const std = @import("std");
 
 pub const sleigh = @import("sleigh.zig");
-pub const clap = @import("clap.zig");
+pub const clap = @import("clap");
 pub const shard = @import("shard.zig");
 pub const config = @import("config.zig");
 pub const union_find = @import("union_find.zig");
@@ -50,9 +50,9 @@ pub const NeedleGadget = struct {
     /// Given a previous gadget, combine the metadata of the provided instruciton
     /// to create....bigger gadget
     pub fn from_parent_gadget(insn: *const ShardInsn, parent: *const Self, allocator: std.mem.Allocator) !Self {
-        var out_text = try std.fmt.allocPrint(allocator, "{s}; {s}", .{ insn.text, parent.text });
-        var out_size = insn.size + parent.size;
-        var out_address = insn.base_address;
+        const out_text = try std.fmt.allocPrint(allocator, "{s}; {s}", .{ insn.text, parent.text });
+        const out_size = insn.size + parent.size;
+        const out_address = insn.base_address;
         return NeedleGadget{ .address = out_address, .size = out_size, .text = out_text };
     }
 };
@@ -114,7 +114,7 @@ pub fn find_gadgets(insns: std.ArrayList(ShardInsn), allocator: std.mem.Allocato
             }
 
             // index of insns to check for presence of gadget or not
-            var check_idx = curr_index - 1;
+            const check_idx = curr_index - 1;
             const insn = insns.items[check_idx];
             if (is_gadget(insn)) {
                 // add the size of this gadget to the size of the parent gadget
@@ -182,20 +182,18 @@ pub fn main() !void {
         \\<str>                    Path to input file.
     );
 
-    // parse + setup options
-    var diag = clap.Diagnostic{};
-    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
-        .diagnostic = &diag,
-    }) catch |err| {
-        diag.report(std.io.getStdErr().writer(), err) catch {};
-        return err;
-    };
-    defer res.deinit();
-
     // initialize the allocator
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    // parse + setup options
+    var diag = clap.Diagnostic{};
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{ .diagnostic = &diag, .allocator = allocator }) catch |err| {
+        diag.report(std.io.getStdErr().writer(), err) catch {};
+        return err;
+    };
+    defer res.deinit();
 
     // handle the cli options
     if (res.args.help != 0) {
@@ -257,7 +255,7 @@ pub fn main() !void {
 
     var loader = shard.ShardLoader.init(allocator);
 
-    var target = try loader.loadFileFromConfig(&c);
+    const target = try loader.loadFileFromConfig(&c);
 
     var shard_rt = shard.ShardRuntime.init(allocator);
     defer shard_rt.deinit();
@@ -265,11 +263,7 @@ pub fn main() !void {
     try shard_rt.load_target(target);
 
     // get list of gadget insns
-    var haystack = try shard_rt.perform_lift();
-    var gadgets = try find_gadgets(haystack, allocator);
+    const haystack = try shard_rt.perform_lift();
+    const gadgets = try find_gadgets(haystack, allocator);
     dump_gadgets(gadgets);
-}
-
-test "Full package test" {
-    std.testing.refAllDeclsRecursive(@This());
 }

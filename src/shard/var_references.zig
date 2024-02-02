@@ -52,7 +52,7 @@ pub const VarReference = union(enum) {
     const Self = @This();
     pub fn from_varnode(vn: *const sleigh.VarnodeDesc, register_map: *const RegisterMap) !Self {
         // get the enum of valid address spaces
-        var var_space = try vn.space_enum();
+        const var_space = try vn.space_enum();
 
         // switch on the address space type
         switch (var_space) {

@@ -5,6 +5,29 @@ const registers = @import("registers.zig");
 const RegisterMap = registers.RegisterMap;
 
 /// enum of opcode list
+///
+/// # TODO
+/// things to add
+/// - vector of opcode sequence
+///   - takes lane size, lane #, and base addr ?
+/// - system control insns
+///   - fence {D,I}
+///   - flush {D,I,ITLB,DTLB,Lx Cache {I,D}}
+///   - bp
+///   - wp
+/// - atomic operation
+///   - figure out a way to encode load-store architectures (arm,mips, bfin etc)
+///     as opposed to x86
+/// - privilege/mode check/update
+/// - insn insert
+/// - tsc check / reset
+///   - can encode as a "monotonically increasing" register or something
+/// - hint instructions
+///   - prefetch
+///   - branch pred
+///   - indirect branch hint
+///   - spec hint
+///
 pub const ShardOps = enum {
     unimplemented,
     copy,
@@ -119,7 +142,7 @@ pub const ShardOperation = union(ShardOps) {
     /// checking if the output reference is a register that ends with `sp`,
     /// which is generally the stack pointer on most architectures
     pub fn modifies_sp(self: *const ShardOperation) bool {
-        var output = self.output_reference();
+        const output = self.output_reference();
 
         if (output) |out_ref| {
             switch (out_ref) {
@@ -141,7 +164,7 @@ pub const ShardOperation = union(ShardOps) {
         var inputs = try allocator.alloc(VarReference, in_op.inputs_len);
         errdefer allocator.free(inputs);
 
-        var shard_op = ShardOps.from_sleigh(in_op.opcode);
+        const shard_op = ShardOps.from_sleigh(in_op.opcode);
 
         // get all the input nodes here
         for (in_op.inputs(), 0..) |vn, idx| {
@@ -153,7 +176,7 @@ pub const ShardOperation = union(ShardOps) {
 
         // we have an output pcode node
         if (in_op.output) |out_vn| {
-            var out = try VarReference.from_varnode(out_vn, register_map);
+            const out = try VarReference.from_varnode(out_vn, register_map);
 
             return Self.new(inputs, out, shard_op, allocator);
         }
@@ -173,7 +196,7 @@ pub const ShardOpUnimplemented = struct {
 
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -185,7 +208,7 @@ pub const ShardOpCopy = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -197,7 +220,7 @@ pub const ShardOpStore = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -209,7 +232,7 @@ pub const ShardOpLoad = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -221,7 +244,7 @@ pub const ShardOpCall = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -233,7 +256,7 @@ pub const ShardOpCallIndirect = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -245,7 +268,7 @@ pub const ShardOpBranch = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -257,7 +280,7 @@ pub const ShardOpBranchIndirect = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -269,7 +292,7 @@ pub const ShardOpBranchCond = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -281,7 +304,7 @@ pub const ShardOpReturn = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };
@@ -293,7 +316,7 @@ pub const ShardOpNotSupported = struct {
     const Self = @This();
     pub fn new(inputs: []VarReference, output: ?VarReference, allocator: std.mem.Allocator) Self {
         _ = allocator;
-        var out = Self{ .inputs = inputs, .output = output };
+        const out = Self{ .inputs = inputs, .output = output };
         return out;
     }
 };

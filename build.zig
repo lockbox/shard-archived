@@ -4,15 +4,7 @@ const std = @import("std");
 // declaratively construct a build graph that will be executed by an external
 // runner.
 pub fn build(b: *std.Build) !void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
@@ -23,6 +15,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+
+    // clap for the main exe
+    const clap_dep = b.dependency("clap", .{ .target = target, .optimize = optimize }).module("clap");
+    exe.root_module.addImport("clap", clap_dep);
 
     // add + link all the core dependencies
     try add_deps(b, exe, target, optimize);
@@ -58,7 +54,7 @@ pub fn build(b: *std.Build) !void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/shard.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -79,8 +75,8 @@ pub fn build(b: *std.Build) !void {
     docs_step.dependOn(&generate_docs.step);
 }
 
-/// Add all the dependencies the the compile step
-fn add_deps(b: *std.Build, build_step: *std.build.CompileStep, target: std.zig.CrossTarget, optimize: std.builtin.OptimizeMode) !void {
+/// Add all the dependencies via the compile step
+fn add_deps(b: *std.Build, build_step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
     // C deps
     build_step.linkLibC();
     const libsla = b.addStaticLibrary(.{
@@ -96,12 +92,6 @@ fn add_deps(b: *std.Build, build_step: *std.build.CompileStep, target: std.zig.C
     //build_step.addIncludePath("./deps/binutils-gdb/bfd");
     //build_step.addIncludePath("./deps/binutils-gdb");
     //build_step.addIncludePath("./deps/binutils-gdb/include");
-
-    // add gluon bindings -- not used atm but this doesn't behave how i think it
-    // does. Not sure this command is actually building gluon
-    //const built_gluon = b.addSystemCommand(&[_][]const u8{ "pushd deps/gluon/", "cargo build -p gluon_c-api --release" });
-    //built_gluon.has_side_effects = true;
-    //exe.addLibraryPath(.{.path="./deps/gluon/target/release/"});
 
     // link against z3
     // little out of my comfort zone atm to replace the z3 build chain with zig
@@ -124,7 +114,7 @@ fn build_sleigh(sleigh_lib: *std.Build.Step.Compile, b: *std.Build) !void {
 
     var sources = std.ArrayList([]const u8).init(b.allocator);
     {
-        var dir = try std.fs.cwd().openIterableDir("deps/sleigh", .{ .access_sub_paths = true });
+        var dir = try std.fs.cwd().openDir("deps/sleigh", .{ .iterate = true, .access_sub_paths = true });
         var walker = try dir.walk(b.allocator);
         defer walker.deinit();
 
@@ -142,8 +132,14 @@ fn build_sleigh(sleigh_lib: *std.Build.Step.Compile, b: *std.Build) !void {
         }
     }
 
+    // add gluon bindings -- not used atm but this doesn't behave how i think it
+    // does. Not sure this command is actually building gluon
+    //const built_gluon = b.addSystemCommand(&[_][]const u8{ "pushd deps/gluon/", "cargo build -p gluon_c-api --release" });
+    //built_gluon.has_side_effects = true;
+    //exe.addLibraryPath(.{.path="./deps/gluon/target/release/"});
+
     // add source files
-    sleigh_lib.addCSourceFiles(sources.items, &flags);
+    sleigh_lib.addCSourceFiles(.{ .files = sources.items, .flags = &flags });
 
     // link bfd
     sleigh_lib.linkSystemLibrary("bfd");

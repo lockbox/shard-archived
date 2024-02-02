@@ -2,17 +2,16 @@
 
 Program analysis library, initially created to help find concurrency bugs,
 but the idea works well for generic program analysis tasks, current poc
-is simple gadget finding.
+is simple ROP gadget finding.
 
 Requirements:
 - bfd + zstd in system libs
 - git
-- zig master-ish (verified works with `0.12.0-dev.170+750998eef`)
+- zig master-ish (verified works with `0.12.0-dev.2540+776cd673f`)
 
 powered by
 - zig
 - SLEIGH
-- gluon
 - btree.c
 - egg
 - answer set programming

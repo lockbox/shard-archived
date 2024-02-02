@@ -101,7 +101,7 @@ pub const RegisterMap = struct {
 
 test "register from sleigh" {
     // make sleigh reg_desc
-    var reg_name = [_]u8{0} ** 64;
+    const reg_name = [_]u8{0} ** 64;
     var reg = sleigh.RegisterDesc{ .name = reg_name, .varnode = sleigh.VarnodeDesc{ .space = "registerrrrrrrrr".*, .offset = 16, .size = 8 } };
 
     // now construct new register
@@ -147,7 +147,7 @@ test "register map add" {
     try testing.expect(reg_map.registers.capacity == 100);
 
     // add a register
-    var reg = RegisterImpl{ .name = "1234567890abcdef".*, .offset_key = 8, .size = 9, .size_key = 10, .value = &[_]u8{} };
+    const reg = RegisterImpl{ .name = "1234567890abcdef".*, .offset_key = 8, .size = 9, .size_key = 10, .value = &[_]u8{} };
     try reg_map.addRegister(reg);
 
     try testing.expect(reg_map.items().len == 1);
@@ -174,11 +174,11 @@ test "register map lookup" {
     try testing.expect(reg_map.registers.capacity == 100);
 
     // add a register
-    var reg1 = RegisterImpl{ .name = "1234567890abcdef".*, .offset_key = 8, .size = 8, .size_key = 8, .value = &[_]u8{} };
+    const reg1 = RegisterImpl{ .name = "1234567890abcdef".*, .offset_key = 8, .size = 8, .size_key = 8, .value = &[_]u8{} };
     try reg_map.addRegister(reg1);
 
     // add a register
-    var reg2 = RegisterImpl{ .name = "fedcba0987654321".*, .offset_key = 0, .size = 4, .size_key = 4, .value = &[_]u8{} };
+    const reg2 = RegisterImpl{ .name = "fedcba0987654321".*, .offset_key = 0, .size = 4, .size_key = 4, .value = &[_]u8{} };
     try reg_map.addRegister(reg2);
 
     // we should have 2

@@ -134,7 +134,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
             }
 
             // make new node
-            var insert_idx: usize = self.nodes.len;
+            const insert_idx: usize = self.nodes.len;
             self.nodes.len += 1;
 
             // add item to node, make the new node
@@ -161,7 +161,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
         /// in the table
         pub fn unionItems(self: *Self, child: *T, parent: *T) bool {
             var child_node = self.getNode(child) orelse return false;
-            var parent_node = self.getNode(parent) orelse return false;
+            const parent_node = self.getNode(parent) orelse return false;
 
             child_node.next = parent_node;
 
@@ -177,7 +177,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
 
             // each loop, coalesce the parent pointers one level
             while (parent != current) {
-                var next_parent = parent.next;
+                const next_parent = parent.next;
                 current.next = next_parent;
 
                 // move next pointers
@@ -215,7 +215,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
 
         inline fn getNode(self: *Self, item: *T) ?*UnionFindNode {
             for (0..self.nodes.len) |idx| {
-                var node = &self.nodes[idx];
+                const node = &self.nodes[idx];
 
                 if (node.item == item) {
                     return node;
@@ -232,7 +232,7 @@ pub fn UnionFindAligned(comptime T: type, comptime alignment: ?u29) type {
 
             for (items) |item| {
                 // if we cant find any item then return false not in set
-                var index = self.getIndex(item) orelse return false;
+                const index = self.getIndex(item) orelse return false;
 
                 // if we found a root
                 if (self.find(index)) |root| {
@@ -292,7 +292,7 @@ test "union find insert 1" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
+    const item = try allocator.create(usize);
     item.* = 2;
 
     _ = try test_uf.insert(item);
@@ -309,8 +309,8 @@ test "union find insert 2" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
 
     _ = try test_uf.insert(item);
     _ = try test_uf.insert(item2);
@@ -328,12 +328,12 @@ test "union find node insert self-ref" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
+    const item = try allocator.create(usize);
     item.* = 2;
 
     _ = try test_uf.insert(item);
 
-    var ptr = test_uf.nodes[0].next;
+    const ptr = test_uf.nodes[0].next;
     try testing.expect(ptr == &test_uf.nodes[0]);
 }
 
@@ -368,8 +368,8 @@ test "union find insert resize" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
 
     // capacity should still be 1
     _ = try test_uf.insert(item);
@@ -389,7 +389,7 @@ test "union find get item" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
+    const item = try allocator.create(usize);
     item.* = 2;
 
     _ = try test_uf.insert(item);
@@ -399,7 +399,7 @@ test "union find get item" {
     try testing.expect(test_uf.allocatedSlice().len == capacity);
 
     // is it the right value
-    var received_item = try test_uf.get(0);
+    const received_item = try test_uf.get(0);
     try testing.expect(received_item.* == @as(usize, 2));
 }
 
@@ -410,7 +410,7 @@ test "union find no parent" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
+    const item = try allocator.create(usize);
 
     _ = try test_uf.insert(item);
     try testing.expect(test_uf.capacity == capacity);
@@ -429,8 +429,8 @@ test "union find 1 parent" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
 
     _ = try test_uf.insert(item);
     _ = try test_uf.insert(item2);
@@ -448,9 +448,9 @@ test "union find parent parent" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
-    var item3 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
+    const item3 = try allocator.create(usize);
 
     _ = try test_uf.insert(item);
     _ = try test_uf.insert(item2);
@@ -473,9 +473,9 @@ test "union find get index" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
-    var item3 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
+    const item3 = try allocator.create(usize);
 
     // we don't indert item3, to assert that we won't find it
     // in the union find
@@ -496,8 +496,8 @@ test "union find union indecies" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
 
     // we don't indert item3, to assert that we won't find it
     // in the union find
@@ -524,9 +524,9 @@ test "union find union items" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var item = try allocator.create(usize);
-    var item2 = try allocator.create(usize);
-    var item3 = try allocator.create(usize);
+    const item = try allocator.create(usize);
+    const item2 = try allocator.create(usize);
+    const item3 = try allocator.create(usize);
 
     // we don't insert item3, to assert that we won't find it
     // in the union find
@@ -555,10 +555,10 @@ test "transitive testing" {
     var test_uf = try uf.withCapacity(allocator, capacity);
     defer test_uf.deinit();
 
-    var a = try allocator.create(usize);
-    var b = try allocator.create(usize);
-    var c = try allocator.create(usize);
-    var d = try allocator.create(usize);
+    const a = try allocator.create(usize);
+    const b = try allocator.create(usize);
+    const c = try allocator.create(usize);
+    const d = try allocator.create(usize);
 
     a.* = 1;
     b.* = 2;
@@ -567,12 +567,12 @@ test "transitive testing" {
 
     // we don't insert item3, to assert that we won't find it
     // in the union find
-    var a_id = try test_uf.insert(a);
+    const a_id = try test_uf.insert(a);
     _ = a_id;
-    var b_id = try test_uf.insert(b);
+    const b_id = try test_uf.insert(b);
     _ = b_id;
-    var c_id = try test_uf.insert(c);
-    var d_id = try test_uf.insert(d);
+    const c_id = try test_uf.insert(c);
+    const d_id = try test_uf.insert(d);
 
     // for this example:
     // - a == c

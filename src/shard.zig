@@ -50,7 +50,7 @@ pub const ShardRuntime = struct {
     const Self = @This();
 
     pub fn init(allocator: std.mem.Allocator) Self {
-        var sleigh_rt = SleighState.init();
+        const sleigh_rt = SleighState.init();
 
         return Self{ .sleigh_handle = sleigh_rt, .allocator = allocator, .register_map = RegisterMap.new(allocator) catch @panic("OOM") };
     }
@@ -136,7 +136,7 @@ pub const ShardRuntime = struct {
             return ShardError.NoTarget;
         };
         var address = target.baseAddress();
-        var max_address = target.maxAddress();
+        const max_address = target.maxAddress();
         logger.debug("Base address: 0x{x}", .{address});
 
         var insn_list = std.ArrayList(ShardInsn).init(self.allocator);
@@ -145,7 +145,7 @@ pub const ShardRuntime = struct {
             //logger.debug("[perform lift] looper with address: 0x{x}", .{address});
 
             // check if next address is valid
-            var inner_address = target.nextAddress(address);
+            const inner_address = target.nextAddress(address);
             //logger.debug("Inner addr: `0x{?x}`", .{inner_address});
             if (inner_address) |insn_addr| {
                 // next address is a valid one, update the top level address
@@ -156,7 +156,7 @@ pub const ShardRuntime = struct {
                     //logger.debug("[INSN] {s}", .{try insn.to_asm(self.allocator)});
 
                     // lift insn semantic summary
-                    var shard_insn = ShardInsn.from_sleigh(insn, &self.register_map, self.allocator) catch {
+                    const shard_insn = ShardInsn.from_sleigh(insn, &self.register_map, self.allocator) catch {
                         logger.warn("Failed to xlate insn: {s}", .{try insn.to_asm(self.allocator)});
                         address += insn.size;
                         continue;
@@ -278,9 +278,9 @@ pub const ShardInsn = struct {
 
     const Self = @This();
     pub fn from_sleigh(insn: *const sleigh.InsnDesc, register_map: *const RegisterMap, allocator: std.mem.Allocator) !Self {
-        var size = insn.size;
-        var base_address = insn.address;
-        var text = try insn.to_asm(allocator);
+        const size = insn.size;
+        const base_address = insn.address;
+        const text = try insn.to_asm(allocator);
 
         // now convert the pcode ops and set summary bits
         var operations = try allocator.alloc(ShardOperation, insn.op_count);
@@ -290,7 +290,7 @@ pub const ShardInsn = struct {
         }
 
         // summarize the operations inside this block
-        var summary = SemanticSummary.summarize(operations);
+        const summary = SemanticSummary.summarize(operations);
         //if (summary.modify_sp) {
         //    logger.debug("INSN: {s} @ 0x{x}, modifies SP", .{ text, base_address });
         //}
@@ -312,8 +312,12 @@ pub const ShardInsn = struct {
 pub fn ShardTargetInsnIterator(comptime T: type, target: ShardInputTarget, func: *const fn (user_data: T, address: u64) void, userdata: T) void {
     _ = userdata;
     _ = func;
-    var working_address = target.baseAddress();
+    const working_address = target.baseAddress();
     _ = working_address;
     const max_address: u64 = target.maxAddress();
     _ = max_address;
+}
+
+test "Full package test" {
+    std.testing.refAllDeclsRecursive(@This());
 }

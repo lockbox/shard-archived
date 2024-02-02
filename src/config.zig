@@ -118,9 +118,9 @@ pub const StructFooConfig = struct {
         var root_path = try fs.cwd().openDir(self.root_dir, .{});
 
         // derive the root -> sla path
-        var pspec_prefix = try std.fmt.allocPrint(allocator, "./specfiles/{s}", .{self.pspec});
+        const pspec_prefix = try std.fmt.allocPrint(allocator, "./specfiles/{s}", .{self.pspec});
         defer allocator.free(pspec_prefix);
-        var pspec_path = try root_path.realpathAlloc(allocator, pspec_prefix);
+        const pspec_path = try root_path.realpathAlloc(allocator, pspec_prefix);
 
         return pspec_path;
     }
@@ -131,9 +131,9 @@ pub const StructFooConfig = struct {
         var root_path = try fs.cwd().openDir(self.root_dir, .{});
 
         // derive the root -> sla path
-        var sla_prefix = try std.fmt.allocPrint(allocator, "./specfiles/{s}", .{self.sla});
+        const sla_prefix = try std.fmt.allocPrint(allocator, "./specfiles/{s}", .{self.sla});
         defer allocator.free(sla_prefix);
-        var sla_path = try root_path.realpathAlloc(allocator, sla_prefix);
+        const sla_path = try root_path.realpathAlloc(allocator, sla_prefix);
 
         return sla_path;
     }
@@ -153,12 +153,12 @@ pub const StructFooConfig = struct {
 
     /// Load from a json `config` at `path` into self, owns allocated memory
     pub fn load_json(self: *Self, path: []const u8, allocator: std.mem.Allocator) !void {
-        var file_contents = try std.fs.cwd().readFileAlloc(allocator, path, 16 * 1024);
+        const file_contents = try std.fs.cwd().readFileAlloc(allocator, path, 16 * 1024);
         defer allocator.free(file_contents);
 
         var json_config = try json.parseFromSlice(Self, allocator, file_contents, .{});
         defer json_config.deinit();
-        var parsed_config = json_config.value;
+        const parsed_config = json_config.value;
 
         self.set_alignment(parsed_config.alignment);
         self.set_base_address(parsed_config.base_address);

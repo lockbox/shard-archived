@@ -29,14 +29,14 @@ fn count_context_pairs(element: *xml.Element) usize {
     var child_count: usize = 0;
 
     while (context_tuple) |ctx_set| {
-        var var_name = ctx_set.getAttribute("name") orelse {
+        const var_name = ctx_set.getAttribute("name") orelse {
             logger.err("Context tuple did not contain `name` attr", .{});
             context_tuple = it.next();
             continue;
         };
         _ = var_name;
 
-        var var_value = ctx_set.getAttribute("val") orelse {
+        const var_value = ctx_set.getAttribute("val") orelse {
             logger.err("Context tuple did not contain `val` attr", .{});
             context_tuple = it.next();
             continue;
@@ -60,7 +60,7 @@ pub fn loadPspecContext(allocator: std.mem.Allocator, path: []const u8) []Sleigh
         return &.{};
     };
     defer raw_file.close();
-    var file_contents = raw_file.readToEndAlloc(allocator, 16 * 1024) catch |err| {
+    const file_contents = raw_file.readToEndAlloc(allocator, 16 * 1024) catch |err| {
         logger.err("Unable to read from file: `{}`", .{err});
         return &.{};
     };
@@ -84,7 +84,7 @@ pub fn loadPspecContext(allocator: std.mem.Allocator, path: []const u8) []Sleigh
     };
 
     // get the number of valid context pairs
-    var pair_count: usize = count_context_pairs(context_set);
+    const pair_count: usize = count_context_pairs(context_set);
 
     // now allocate a slice and populate with the valid pairs
     var pairs = allocator.alloc(SleighContextPair, pair_count) catch {
@@ -96,21 +96,21 @@ pub fn loadPspecContext(allocator: std.mem.Allocator, path: []const u8) []Sleigh
     var it = context_set.findChildrenByTag("set");
     var context_tuple = it.next();
     while (context_tuple) |ctx_set| {
-        var var_name = ctx_set.getAttribute("name") orelse {
+        const var_name = ctx_set.getAttribute("name") orelse {
             logger.err("Context tuple did not contain `name` attr", .{});
             context_tuple = it.next();
             i += 1;
             continue;
         };
 
-        var tmp_variable = allocator.allocSentinel(u8, var_name.len, 0) catch |err| {
+        const tmp_variable = allocator.allocSentinel(u8, var_name.len, 0) catch |err| {
             logger.err("Failed to allocate memory for context `name`: {}", .{err});
             return &.{};
         };
         @memcpy(tmp_variable, var_name);
         pairs[i].variable = tmp_variable;
 
-        var var_value = ctx_set.getAttribute("val") orelse {
+        const var_value = ctx_set.getAttribute("val") orelse {
             logger.err("Context tuple did not contain `val` attr", .{});
             context_tuple = it.next();
             i += 1;
@@ -157,7 +157,7 @@ pub const ShardLoader = struct {
         cfg: *const StructFooConfig,
     ) !ShardInputTarget {
         // turn the file into regions
-        var regions: []ShardMemoryRegion = switch (cfg.input_mode) {
+        const regions: []ShardMemoryRegion = switch (cfg.input_mode) {
             .raw => try self.rawToRegions(cfg.input_path),
             .dump => try self.ghidraDumpToRegions(cfg.input_path),
             .none => {
@@ -166,9 +166,9 @@ pub const ShardLoader = struct {
         };
 
         // get context pairs
-        var pspec_path = try cfg.getPspecPath(self.allocator);
+        const pspec_path = try cfg.getPspecPath(self.allocator);
         defer self.allocator.free(pspec_path);
-        var pairs = loadPspecContext(self.allocator, pspec_path);
+        const pairs = loadPspecContext(self.allocator, pspec_path);
 
         // construct target
         var target = ShardInputTarget.from_regions(regions);
@@ -180,7 +180,7 @@ pub const ShardLoader = struct {
         target.setContextPairs(pairs);
 
         // add sla to target
-        var sla_path = try cfg.getSlaPath(self.allocator);
+        const sla_path = try cfg.getSlaPath(self.allocator);
         logger.debug("setting sla path: {s}", .{sla_path});
         target.setSlaPath(sla_path);
 
@@ -192,7 +192,7 @@ pub const ShardLoader = struct {
     /// and load into the proper regions if applicable, else fallback to a single
     /// flat binary blob region. REturned regions are caller-owned.
     pub fn rawToRegions(self: *Self, path: []const u8) ![]ShardMemoryRegion {
-        var file_contents = try std.fs.cwd().readFileAlloc(self.allocator, path, 50 * 1024 * 1024);
+        const file_contents = try std.fs.cwd().readFileAlloc(self.allocator, path, 50 * 1024 * 1024);
         defer self.allocator.free(file_contents);
 
         const name = try self.allocator.alloc(u8, path.len);
@@ -209,7 +209,7 @@ pub const ShardLoader = struct {
     /// the packaged scripts, and will convert the serialized "regions" into
     /// `ShardMemoryRegion`. Returned regions are caller-owned.
     pub fn ghidraDumpToRegions(self: *Self, path: []const u8) ![]ShardMemoryRegion {
-        var file_contents = try std.fs.cwd().readFileAlloc(self.allocator, path, 50 * 1024 * 1024);
+        const file_contents = try std.fs.cwd().readFileAlloc(self.allocator, path, 50 * 1024 * 1024);
         defer self.allocator.free(file_contents);
 
         // reads the file into the json schema for an array of `ShardMemoryRegion`'s'
@@ -233,7 +233,7 @@ pub const ShardLoader = struct {
             var data = try self.allocator.alloc(u8, region.data.len / 2);
             for (data, 0..) |byte, i| {
                 _ = byte;
-                var str_byte: []u8 = region.data[i * 2 ..][0..2];
+                const str_byte: []u8 = region.data[i * 2 ..][0..2];
 
                 data[i] = try std.fmt.parseInt(u8, str_byte, 16);
             }

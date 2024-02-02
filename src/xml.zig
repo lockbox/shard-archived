@@ -234,7 +234,7 @@ const Parser = struct {
             begin = prev_nl + 1;
         }
 
-        var end = mem.indexOfScalarPos(u8, self.source, self.offset, '\n') orelse self.source.len;
+        const end = mem.indexOfScalarPos(u8, self.source, self.offset, '\n') orelse self.source.len;
         return self.source[begin..end];
     }
 };

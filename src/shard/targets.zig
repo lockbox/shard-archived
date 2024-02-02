@@ -200,7 +200,7 @@ pub const ShardInputTarget = struct {
     pub fn nextAddress(self: *const Self, address: u64) ?u64 {
         var next_address: ?u64 = null;
 
-        var target_base = self.baseAddress();
+        const target_base = self.baseAddress();
 
         if (address > self.maxAddress()) {
             // exit condition
@@ -218,7 +218,7 @@ pub const ShardInputTarget = struct {
                     break;
                 }
 
-                var region_base = region.base_address + target_base;
+                const region_base = region.base_address + target_base;
 
                 // we already verified that the region does not contain the address,
                 // so move on if the address is also larger than the current base
